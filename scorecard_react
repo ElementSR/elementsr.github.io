@@ -1,0 +1,352 @@
+import React, { useState } from 'react';
+import { Download, Plus, Trash2, Users, BarChart3 } from 'lucide-react';
+
+const InterviewScorecard = () => {
+  const [activeTab, setActiveTab] = useState('scoring');
+  const [criteria] = useState([
+    'KSC 1',
+    'KSC 2',
+    'KSC 3',
+    'KSC 4',
+    'KSC 5',
+    'KSC 6'
+  ]);
+  
+  const [candidates, setCandidates] = useState([
+    {
+      id: 1,
+      name: 'Sample Candidate',
+      scores: {
+        panel1: [4, 3.5, 4.5, 4, 3.5, 4],
+        panel2: [3.5, 4, 4, 4.5, 3.5, 3.5],
+        panel3: [4, 4, 4.5, 4, 4, 4]
+      }
+    }
+  ]);
+
+  const addCandidate = () => {
+    const newId = candidates.length > 0 ? Math.max(...candidates.map(c => c.id)) + 1 : 1;
+    setCandidates([...candidates, {
+      id: newId,
+      name: '',
+      scores: {
+        panel1: Array(6).fill(0),
+        panel2: Array(6).fill(0),
+        panel3: Array(6).fill(0)
+      }
+    }]);
+  };
+
+  const removeCandidate = (id) => {
+    setCandidates(candidates.filter(c => c.id !== id));
+  };
+
+  const updateCandidateName = (id, name) => {
+    setCandidates(candidates.map(c => 
+      c.id === id ? { ...c, name } : c
+    ));
+  };
+
+  const updateScore = (candidateId, panel, criterionIndex, value) => {
+    setCandidates(candidates.map(c => {
+      if (c.id === candidateId) {
+        const newScores = { ...c.scores };
+        newScores[panel] = [...newScores[panel]];
+        newScores[panel][criterionIndex] = parseFloat(value) || 0;
+        return { ...c, scores: newScores };
+      }
+      return c;
+    }));
+  };
+
+  const calculateCriterionAverage = (candidate, criterionIndex) => {
+    const scores = [
+      candidate.scores.panel1[criterionIndex],
+      candidate.scores.panel2[criterionIndex],
+      candidate.scores.panel3[criterionIndex]
+    ];
+    const sum = scores.reduce((a, b) => a + b, 0);
+    return (sum / 3).toFixed(2);
+  };
+
+  const calculateTotalAverage = (candidate) => {
+    let total = 0;
+    for (let i = 0; i < 6; i++) {
+      total += parseFloat(calculateCriterionAverage(candidate, i));
+    }
+    return (total / 6).toFixed(2);
+  };
+
+  const getSummaryData = () => {
+    return candidates
+      .filter(c => c.name.trim() !== '')
+      .map(candidate => ({
+        name: candidate.name,
+        criteriaAverages: criteria.map((_, i) => parseFloat(calculateCriterionAverage(candidate, i))),
+        totalAverage: parseFloat(calculateTotalAverage(candidate))
+      }))
+      .sort((a, b) => b.totalAverage - a.totalAverage);
+  };
+
+  const exportToCSV = () => {
+    let csv = 'Candidate,';
+    criteria.forEach(c => {
+      csv += `${c} (P1),${c} (P2),${c} (P3),${c} (Avg),`;
+    });
+    csv += 'Overall Average\n';
+
+    candidates.filter(c => c.name.trim() !== '').forEach(candidate => {
+      csv += `${candidate.name},`;
+      criteria.forEach((_, i) => {
+        csv += `${candidate.scores.panel1[i]},${candidate.scores.panel2[i]},${candidate.scores.panel3[i]},${calculateCriterionAverage(candidate, i)},`;
+      });
+      csv += `${calculateTotalAverage(candidate)}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'interview_scores.csv';
+    a.click();
+  };
+
+  return (
+    <div className="w-full max-w-7xl mx-auto p-6 bg-gray-50">
+      <div className="bg-white rounded-lg shadow-lg">
+        <div className="border-b border-gray-200 p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Interview Candidate Scorecard</h1>
+              <p className="text-gray-600 mt-1">Assess candidates across 6 criteria with 3 panel members</p>
+            </div>
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Download size={18} />
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div className="border-b border-gray-200">
+          <div className="flex gap-4 px-6">
+            <button
+              onClick={() => setActiveTab('scoring')}
+              className={`py-4 px-2 border-b-2 font-medium transition-colors ${
+                activeTab === 'scoring'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users size={18} />
+                Detailed Scoring
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('summary')}
+              className={`py-4 px-2 border-b-2 font-medium transition-colors ${
+                activeTab === 'summary'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BarChart3 size={18} />
+                Summary Dashboard
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {activeTab === 'scoring' ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-900">Candidate Scoring Sheet</h2>
+                <button
+                  onClick={addCandidate}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Plus size={18} />
+                  Add Candidate
+                </button>
+              </div>
+
+              {candidates.map((candidate) => (
+                <div key={candidate.id} className="border border-gray-200 rounded-lg p-6 bg-white">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Candidate Name
+                      </label>
+                      <input
+                        type="text"
+                        value={candidate.name}
+                        onChange={(e) => updateCandidateName(candidate.id, e.target.value)}
+                        placeholder="Enter candidate name"
+                        className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeCandidate(candidate.id)}
+                      className="text-red-600 hover:text-red-800 p-2"
+                      title="Remove candidate"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-2 font-semibold text-gray-700">Criteria</th>
+                          <th className="text-center py-3 px-2 font-semibold text-gray-700">Panel 1</th>
+                          <th className="text-center py-3 px-2 font-semibold text-gray-700">Panel 2</th>
+                          <th className="text-center py-3 px-2 font-semibold text-gray-700">Panel 3</th>
+                          <th className="text-center py-3 px-2 font-semibold text-blue-700 bg-blue-50">Average</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {criteria.map((criterion, i) => (
+                          <tr key={i} className="border-b border-gray-100">
+                            <td className="py-3 px-2 font-medium text-gray-900">{criterion}</td>
+                            <td className="py-3 px-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                step="0.5"
+                                value={candidate.scores.panel1[i]}
+                                onChange={(e) => updateScore(candidate.id, 'panel1', i, e.target.value)}
+                                className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </td>
+                            <td className="py-3 px-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="5"
+                                step="0.5"
+                                value={candidate.scores.panel2[i]}
+                                onChange={(e) => updateScore(candidate.id, 'panel2', i, e.target.value)}
+                                className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </td>
+                            <td className="py-3 px-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="5"
+                                step="0.5"
+                                value={candidate.scores.panel3[i]}
+                                onChange={(e) => updateScore(candidate.id, 'panel3', i, e.target.value)}
+                                className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </td>
+                            <td className="py-3 px-2 text-center font-semibold text-blue-700 bg-blue-50">
+                              {calculateCriterionAverage(candidate, i)}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50 font-bold">
+                          <td className="py-3 px-2 text-gray-900">Overall Average</td>
+                          <td colSpan="3" className="py-3 px-2"></td>
+                          <td className="py-3 px-2 text-center text-lg text-blue-700">
+                            {calculateTotalAverage(candidate)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+
+              {candidates.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <Users size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>No candidates yet. Click "Add Candidate" to get started.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900">Summary Dashboard</h2>
+              
+              {getSummaryData().length > 0 ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border border-gray-200 rounded-lg">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">Rank</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 border-b">Candidate</th>
+                          {criteria.map((c, i) => (
+                            <th key={i} className="text-center py-3 px-4 font-semibold text-gray-700 border-b">{c}</th>
+                          ))}
+                          <th className="text-center py-3 px-4 font-semibold text-blue-700 border-b bg-blue-50">Overall</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getSummaryData().map((candidate, idx) => (
+                          <tr key={idx} className={`border-b ${idx === 0 ? 'bg-green-50' : ''}`}>
+                            <td className="py-3 px-4 font-bold text-gray-900">{idx + 1}</td>
+                            <td className="py-3 px-4 font-medium text-gray-900">{candidate.name}</td>
+                            {candidate.criteriaAverages.map((avg, i) => (
+                              <td key={i} className="py-3 px-4 text-center">
+                                <span className={`inline-block px-2 py-1 rounded ${
+                                  avg >= 4 ? 'bg-green-100 text-green-800' :
+                                  avg >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {avg.toFixed(2)}
+                                </span>
+                              </td>
+                            ))}
+                            <td className="py-3 px-4 text-center bg-blue-50">
+                              <span className="font-bold text-lg text-blue-700">
+                                {candidate.totalAverage.toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-blue-900 mb-2">Scoring Guide</h3>
+                    <div className="flex gap-6 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-4 h-4 bg-green-100 border border-green-300 rounded"></span>
+                        <span className="text-gray-700">4.0+ Excellent</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-4 h-4 bg-yellow-100 border border-yellow-300 rounded"></span>
+                        <span className="text-gray-700">3.0-3.9 Good</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-4 h-4 bg-red-100 border border-red-300 rounded"></span>
+                        <span className="text-gray-700">&lt;3.0 Needs Improvement</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <BarChart3 size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>Add candidates and scores to see the summary dashboard.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default InterviewScorecard;
